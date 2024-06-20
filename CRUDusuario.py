@@ -9,7 +9,7 @@ global db
 db = client.mercadolivre
 
 def delete_usuario(nome, sobrenome):
-    #Delete
+    
     global db
     mycol = db.usuario
     myquery = {"nome": nome, "sobrenome":sobrenome}

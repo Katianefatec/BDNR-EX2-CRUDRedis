@@ -78,14 +78,11 @@ while (key != 'S'):
             nome = input("Listar produto, deseja algum produto especifico? ")
             CRUDproduto.read_produto(nome)
         
-        elif (sub == '3'):
-            nome = input("Digite o produto a ser atualizado: ")
-            CRUDproduto.update_produto(nome)
+        elif (sub == '3'):            
+            CRUDproduto.update_produto()
 
-        elif (sub == '4'):
-            print("delete produto")
-            nome = input("Produto a ser deletado: ")            
-            CRUDproduto.delete_produto(nome)     
+        elif (sub == '4'):                             
+            CRUDproduto.delete_produto()     
 
     elif key == '4':
         print("Compras") 

@@ -92,7 +92,7 @@ def read_vendedor(nome):
     if not len(nome):
         mydoc = mycol.find().sort("nome")
         for x in mydoc:
-            print(x["nome"],x["cnpj"])
+            print(x["nome"],x["cnpj"], x["produtos"])
     else:
         myquery = {"nome": nome}
         mydoc = mycol.find(myquery)
