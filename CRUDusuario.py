@@ -3,7 +3,7 @@ from pymongo.server_api import ServerApi
 
 uri = "mongodb+srv://admin:admin@fatec.izfgkb8.mongodb.net/?retryWrites=true&w=majority&appName=Fatec"
 
-# Create a new client and connect to the server
+
 client = MongoClient(uri, server_api=ServerApi('1'))
 global db
 db = client.mercadolivre
@@ -16,39 +16,69 @@ def delete_usuario(nome, sobrenome):
     mydoc = mycol.delete_one(myquery)
     print("Deletado o usuário ",mydoc)
 
+def input_with_cancel(prompt, cancel_keyword="CANCELAR"):
+    resposta = input(f"{prompt} (digite {cancel_keyword} para abortar): ")
+    if resposta.upper() == cancel_keyword:
+        print("Criação de usuário cancelada.")
+        return None
+    return resposta
+
 def create_usuario():
-    #Insert
     global db
     mycol = db.usuario
     print("\nInserindo um novo usuário")
-    nome = input("Nome: ")
-    sobrenome = input("Sobrenome: ")
-    cpf = input("CPF: ")
-    key = 1
+    nome = input_with_cancel("Nome")
+    if nome is None: return
+
+    sobrenome = input_with_cancel("Sobrenome")
+    if sobrenome is None: return
+    
+    cpf = input_with_cancel("CPF")
+    if cpf is None: return
+
+    if mycol.find_one({"cpf": cpf}):
+        print("Já existe um usuário cadastrado com este CPF.")
+        return
+    
     end = []
-    while (key != 'N'):
-        rua = input("Rua: ")
-        num = input("Num: ")
-        bairro = input("Bairro: ")
-        cidade = input("Cidade: ")
-        estado = input("Estado: ")
-        cep = input("CEP: ")
-        endereco = {        #isso nao eh json, isso é chave-valor, eh um obj
-            "rua":rua,
+    while True:
+        rua = input_with_cancel("Rua")
+        if rua is None: return
+
+        num = input_with_cancel("Num")
+        if num is None: return
+
+        bairro = input_with_cancel("Bairro")
+        if bairro is None: return
+
+        cidade = input_with_cancel("Cidade")
+        if cidade is None: return
+
+        estado = input_with_cancel("Estado")
+        if estado is None: return
+
+        cep = input_with_cancel("CEP")
+        if cep is None: return
+
+        endereco = {
+            "rua": rua,
             "num": num,
             "bairro": bairro,
             "cidade": cidade,
             "estado": estado,
             "cep": cep
         }
-        end.append(endereco) #estou inserindo na lista
-        key = input("Deseja cadastrar um novo endereço (S/N)? ")
-    mydoc = { "nome": nome, "sobrenome": sobrenome, "cpf": cpf, "end": end }
+        end.append(endereco)
+
+        key = input_with_cancel("Deseja cadastrar um novo endereço (S/N)?", "N")
+        if key is None or key.upper() == 'N': break
+
+    mydoc = {"nome": nome, "sobrenome": sobrenome, "cpf": cpf, "end": end}
     x = mycol.insert_one(mydoc)
-    print("Documento inserido com ID ",x.inserted_id)
+    print("Usuário inserido com ID ", x.inserted_id)
 
 def read_usuario(nome):
-    #Read
+    
     global db
     mycol = db.usuario
     print("Usuários existentes: ")
@@ -63,7 +93,7 @@ def read_usuario(nome):
             print(x)
 
 def update_usuario(nome):
-    #Read
+   
     global db
     mycol = db.usuario
     myquery = {"nome": nome}

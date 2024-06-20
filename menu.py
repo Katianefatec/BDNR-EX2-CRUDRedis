@@ -16,75 +16,75 @@ while (key != 'S'):
 
     if (key == '1'):
         print("Menu do Usuário")
-        print("1-Create Usuário")
-        print("2-Read Usuário")
-        print("3-Update Usuário")
-        print("4-Delete Usuário")
+        print("1-Criar Usuário")
+        print("2-Listar Usuário")
+        print("3-Atualizar Usuário")
+        print("4-Excluir Usuário")
         sub = input("Digite a opção desejada? (V para voltar) ")
         if (sub == '1'):
-            print("Create usuario")
+            print("Criar usuario")
             CRUDusuario.create_usuario()
             
         elif (sub == '2'):
-            nome = input("Read usuário, deseja algum nome especifico? ")
+            nome = input("Listar usuários, deseja algum nome especifico? ")
             CRUDusuario.read_usuario(nome)
         
         elif (sub == '3'):
-            nome = input("Update usuário, deseja algum nome especifico? ")
+            nome = input("Digite o usuário a ser atualizado: ")
             CRUDusuario.update_usuario(nome)
 
         elif (sub == '4'):
             print("delete usuario")
-            nome = input("Nome a ser deletado: ")
+            nome = input("Digite o usuário a ser deletado: ")
             sobrenome = input("Sobrenome a ser deletado: ")
             CRUDusuario.delete_usuario(nome, sobrenome)
             
     elif (key == '2'):
         print("Menu do Vendedor")     
-        print("1-Create Vendedor")
-        print("2-Read Vendedor")
-        print("3-Update Vendedor")
-        print("4-Delete Vendedor")
+        print("1-Criar Vendedor")
+        print("2-Listar Vendedor")
+        print("3-Atualizar Vendedor")
+        print("4-Excluir Vendedor")
         sub = input("Digite a opção desejada? (V para voltar) ")
         if (sub == '1'):
-            print("Create vendedor")
+            print("Criar vendedor")
             CRUDvendedor.create_vendedor()
             
         elif (sub == '2'):
-            nome = input("Read usuário, deseja algum nome especifico? ")
+            nome = input("Listar vendedores, deseja algum nome especifico? ")
             CRUDvendedor.read_vendedor(nome)
         
         elif (sub == '3'):
-            nome = input("Update usuário, deseja algum nome especifico? ")
+            nome = input("Digite o nome a ser atualizado: ")
             CRUDvendedor.update_vendedor(nome)
 
         elif (sub == '4'):
-            print("delete vendedor")
+            print("Excluir vendedor")
             nome = input("Nome a ser deletado: ")           
             CRUDvendedor.delete_vendedor(nome)  
          
     elif (key == '3'):
         print("Menu do Produto")  
-        print("1-Create Produto")
-        print("2-Read Produto")
-        print("3-Update Produto")
-        print("4-Delete Produto")
+        print("1-Criar Produto")
+        print("2-Listar Produto")
+        print("3-Atualizar Produto")
+        print("4-Excluir Produto")
         sub = input("Digite a opção desejada? (V para voltar) ")
         if (sub == '1'):
-            print("Create produto")
+            print("Criar produto")
             CRUDproduto.create_produto()
             
         elif (sub == '2'):
-            nome = input("Read produto, deseja algum produto especifico? ")
+            nome = input("Listar produto, deseja algum produto especifico? ")
             CRUDproduto.read_produto(nome)
         
         elif (sub == '3'):
-            nome = input("Update produto, deseja algum produto especifico? ")
+            nome = input("Digite o produto a ser atualizado: ")
             CRUDproduto.update_produto(nome)
 
         elif (sub == '4'):
             print("delete produto")
-            nome = input("Nome a ser deletado: ")            
+            nome = input("Produto a ser deletado: ")            
             CRUDproduto.delete_produto(nome)     
 
     elif key == '4':
