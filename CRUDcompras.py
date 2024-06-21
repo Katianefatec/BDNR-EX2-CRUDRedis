@@ -138,7 +138,7 @@ def realizar_compra(cpf_usuario):
     else:
         print("Compra realizada com sucesso.")
         for produto in carrinho:
-            if 'vendedor_id' in produto:  # Verifica se o produto tem vendedor associado
+            if 'vendedor_id' in produto:  
                 vendedor_id = produto['vendedor_id']
                 vendedor = db.vendedor.find_one({"_id": vendedor_id})
 
@@ -150,29 +150,28 @@ def realizar_compra(cpf_usuario):
                         "cpf_comprador": cpf_usuario,
                         "cpf_vendedor": vendedor['cpf']
                     }
-
-                    # Atualiza a coleção do vendedor com a venda
+                    
                     db.vendedor.update_one(
                         {"_id": vendedor_id},
                         {"$push": {"vendas": venda}}
                     )
 
-                    # Remove o produto da coleção de produtos
+                    
                     db.produto.delete_one({"_id": produto['_id']})
-
-    carrinho.clear()  # Limpa o carrinho após a compra
+    
 
     produtos_compra = [{
     "nome": produto['nome'],
     "valor": produto['valor']
     } for produto in carrinho]
-
+    
     compra = {
         "cpf_usuario": cpf_usuario,
         "produtos": produtos_compra,
         "endereco_entrega": endereco_entrega,
         "valor_total": total
     }
+    
     db.compra.insert_one(compra)
     
     if 'compras' not in usuario:
@@ -181,6 +180,8 @@ def realizar_compra(cpf_usuario):
         usuario['compras'].append(compra)
     db.usuario.update_one({"cpf": cpf_usuario}, {"$set": {"compras": usuario['compras']}})
 
+    
+    carrinho.clear()
     return carrinho
 
 def ver_compras_realizadas(cpf_usuario):
