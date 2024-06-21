@@ -1,5 +1,6 @@
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
+from bson import ObjectId
 
 from CRUDusuario import read_usuario
 
@@ -19,26 +20,40 @@ def adicionar_favorito(cpf_usuario, id_produto):
     db.usuario.update_one({"cpf": cpf_usuario}, {"$push": {"favoritos": id_produto}})
     print("Produto adicionado aos favoritos do usuário com sucesso!")
 
+def produto_existe(id_produto):
+    global db
+    return db.produto.find_one({"_id": id_produto}) is not None
+
 def visualizar_favoritos(cpf_usuario):
     global db
     usuario = db.usuario.find_one({"cpf": cpf_usuario})
     if not usuario or "favoritos" not in usuario:
         print("O usuário não possui favoritos.")
         return
+    
+    favoritos_validos = [id_produto for id_produto in usuario["favoritos"] if produto_existe(id_produto)]
+   
+    db.usuario.update_one({"cpf": cpf_usuario}, {"$set": {"favoritos": favoritos_validos}})
+
     print("Favoritos do usuário:")
-    for id_produto in usuario["favoritos"]:
+    for id_produto in favoritos_validos:  
         produto = db.produto.find_one({"_id": id_produto})
         if produto:
-            vendedor = db.vendedor.find_one({"cpf": produto.get("vendedor")})
-            if vendedor:
-                print("Nome do Produto:", produto["nome"])
-                print("valor:", produto["valor"])
-                print("Vendedor:", vendedor["nome"])
-                print()
+            print("Nome do Produto:", produto["nome"])
+            print("Valor:", produto["valor"])
+            nome_vendedor = produto.get("nome_vendedor")
+            if nome_vendedor:
+                vendedor = db.vendedor.find_one({"nome": nome_vendedor})
+                if vendedor:
+                    print("Vendedor:", vendedor["nome"])
+                else:
+                    print("Vendedor: Não encontrado")
             else:
-                print("Vendedor não encontrado para o produto:", produto["nome"])
+                print("Nome do vendedor não disponível para o produto:", produto["nome"])
+            print()
         else:
-            print("Produto não encontrado para o favorito com ID:", id_produto)
+            print("Erro inesperado: Produto não encontrado para o favorito com ID:", id_produto)  
+
 
 def excluir_favorito(cpf_usuario):
     global db

@@ -76,11 +76,12 @@ def create_produto():
         if escolha_numerica < 0 or escolha_numerica >= len(vendedores):
             raise ValueError("Número fora do intervalo")
         vendedor_id = vendedores[escolha_numerica]['_id']
+        nome_vendedor = vendedores[escolha_numerica]['nome']  
     except (ValueError, IndexError):
         print("Escolha inválida.")
         return
 
-    mydoc = {"nome": nome, "valor": valor, "vendedor_id": vendedor_id}
+    mydoc = {"nome": nome, "valor": valor, "vendedor_id": vendedor_id,  "nome_vendedor": nome_vendedor}
     x = mycol.insert_one(mydoc)
     print("Produto inserido com ID ", x.inserted_id)
 
@@ -168,4 +169,5 @@ def read_produto(nome):
         
         
         print(f"Nome: {produto['nome']}, Valor: {produto['valor']}, Vendedor: {nome_vendedor}")
+    
 
