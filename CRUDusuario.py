@@ -16,16 +16,16 @@ def delete_usuario(nome, sobrenome):
     mydoc = mycol.delete_one(myquery)
     print("Deletado o usuário ",mydoc)
 
-def input_with_cancel(prompt, cancel_keyword="CANCELAR"):
+def input_with_cancel(prompt, cancel_keyword="CANCELAR", cancel_on_n_for_specific_prompt=False):
     resposta = input(f"{prompt} (digite {cancel_keyword} para abortar): ")
     if resposta.upper() == cancel_keyword:
-        print("Criação de usuário cancelada.")
+        print("Operação cancelada.")
         return None
+    if cancel_on_n_for_specific_prompt and resposta.upper() == 'N':
+        return resposta
     return resposta
 
 def create_usuario():
-    global db
-    mycol = db.usuario
     print("\nInserindo um novo usuário")
     nome = input_with_cancel("Nome")
     if nome is None: return
@@ -34,47 +34,43 @@ def create_usuario():
     if sobrenome is None: return
     
     cpf = input_with_cancel("CPF")
-    if cpf is None: return
+    if cpf is None or cpf.strip() == "":  
+        print("CPF é obrigatório.")
+        return
 
-    if mycol.find_one({"cpf": cpf}):
+    if db.usuario.find_one({"cpf": cpf}):
         print("Já existe um usuário cadastrado com este CPF.")
         return
     
     end = []
     while True:
-        rua = input_with_cancel("Rua")
-        if rua is None: return
+        rua = input_with_cancel("Rua", cancel_on_n_for_specific_prompt=True)
+        if rua is None: break  
 
-        num = input_with_cancel("Num")
-        if num is None: return
+        num = input_with_cancel("Num", cancel_on_n_for_specific_prompt=True)
+        if num is None: break
 
-        bairro = input_with_cancel("Bairro")
-        if bairro is None: return
+        bairro = input_with_cancel("Bairro", cancel_on_n_for_specific_prompt=True)
+        if bairro is None: break
 
-        cidade = input_with_cancel("Cidade")
-        if cidade is None: return
+        cidade = input_with_cancel("Cidade", cancel_on_n_for_specific_prompt=True)
+        if cidade is None: break
 
-        estado = input_with_cancel("Estado")
-        if estado is None: return
+        estado = input_with_cancel("Estado", cancel_on_n_for_specific_prompt=True)
+        if estado is None: break
 
-        cep = input_with_cancel("CEP")
-        if cep is None: return
+        cep = input_with_cancel("CEP", cancel_on_n_for_specific_prompt=True)
+        if cep is None: break
 
-        endereco = {
-            "rua": rua,
-            "num": num,
-            "bairro": bairro,
-            "cidade": cidade,
-            "estado": estado,
-            "cep": cep
-        }
+        endereco = {"rua": rua, "num": num, "bairro": bairro, "cidade": cidade, "estado": estado, "cep": cep}
         end.append(endereco)
 
-        key = input_with_cancel("Deseja cadastrar um novo endereço (S/N)?", "N")
-        if key is None or key.upper() == 'N': break
+        continuar = input("Deseja cadastrar um novo endereço (S/N)? ").strip().upper()
+        if continuar != 'S': break
+    
 
     mydoc = {"nome": nome, "sobrenome": sobrenome, "cpf": cpf, "end": end}
-    x = mycol.insert_one(mydoc)
+    x = db.usuario.insert_one(mydoc)
     print("Usuário inserido com ID ", x.inserted_id)
 
 def read_usuario(nome):

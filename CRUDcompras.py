@@ -14,6 +14,30 @@ def adicionar_compra_usuario(cpf_usuario, compra):
         {"$push": {"compras": compra}}
     )
 
+def cadastrar_endereco(cpf_usuario):
+    print("Cadastro de novo endereço.")
+    rua = input("Rua: ")
+    numero = input("Número: ")
+    bairro = input("Bairro: ")
+    cidade = input("Cidade: ")
+    estado = input("Estado: ")
+    cep = input("CEP: ")
+
+    novo_endereco = {
+        "rua": rua,
+        "num": numero,
+        "bairro": bairro,
+        "cidade": cidade,
+        "estado": estado,
+        "cep": cep
+    }
+
+    db.usuario.update_one({"cpf": cpf_usuario}, {"$push": {"end": novo_endereco}})
+
+    print("Endereço cadastrado com sucesso.")
+    return novo_endereco
+
+
 def realizar_compra(cpf_usuario):
     global db
     usuario = db.usuario.find_one({"cpf": cpf_usuario})
@@ -21,19 +45,13 @@ def realizar_compra(cpf_usuario):
         print("Usuário não encontrado. Deseja realizar o cadastro? (S/N)")
         resposta = input().upper()
         if resposta == 'S':
-            cpf_usuario = create_usuario()            
-            usuario = db.usuario.find_one({"cpf": cpf_usuario})            
-            if not usuario:
-                print("Erro ao criar usuário. Por favor, tente novamente.")
-                return
-            print("Usuário cadastrado com sucesso.")
+            cpf_usuario = create_usuario()  
+            usuario = {"cpf": cpf_usuario}          
+            print("Usuário cadastrado com sucesso.")          
+            
         else:
             print("Não é possível continuar com a compra sem um usuário cadastrado.")
             return
-    endereco = db.endereco.find_one({"usuario_id": cpf_usuario})
-    if not endereco:
-        print("Endereço não encontrado. Por favor, cadastre um endereço para continuar.")
-        return
     carrinho = []
 
     print("Lista de produtos disponíveis:")
@@ -73,40 +91,64 @@ def realizar_compra(cpf_usuario):
         return carrinho
 
     enderecos = usuario.get("end", [])
+    if not enderecos:
+        print("Nenhum endereço cadastrado. Deseja cadastrar um novo endereço? (S/N)")
+        resposta = input().upper()
+        if resposta == 'S':
+            endereco_entrega = cadastrar_endereco(cpf_usuario)  
+            enderecos = [endereco_entrega]
+        else:
+            print("Não é possível continuar com a compra sem um endereço de entrega.")
+            return
+
     print("\nSelecione o endereço de entrega:")
     for i, endereco in enumerate(enderecos, start=1):
         print(f"{i} - {endereco['rua']}, {endereco['num']}, {endereco['bairro']}, {endereco['cidade']}, {endereco['estado']}, CEP: {endereco['cep']}")
 
     while True:
-        endereco_selecionado = input("Digite o número do endereço selecionado: ")
+        endereco_selecionado = input("Digite o número do endereço selecionado (ou 'N' para cadastrar um novo): ")
+        if endereco_selecionado.upper() == 'N':
+            endereco_entrega = cadastrar_endereco(cpf_usuario)
+            break
         try:
             endereco_selecionado = int(endereco_selecionado)
             if 1 <= endereco_selecionado <= len(enderecos):
                 endereco_entrega = enderecos[endereco_selecionado - 1]
-                print("Endereço selecionado para entrega:")
-                print(f"{endereco_entrega['rua']}, {endereco_entrega['num']}, {endereco_entrega['bairro']}, {endereco_entrega['cidade']}, {endereco_entrega['estado']}, CEP: {endereco_entrega['cep']}")
-
-                compra = {
-                    "cpf_usuario": cpf_usuario,
-                    "produtos": carrinho,
-                    "endereco_entrega": endereco_entrega,
-                    "valor_total": total
-                }
-                db.compra.insert_one(compra)
-
-                # Adiciona a compra ao usuário
-                if 'compras' not in usuario:
-                    usuario['compras'] = [compra]
-                else:
-                    usuario['compras'].append(compra)
-                db.usuario.update_one({"cpf": cpf_usuario}, {"$set": {"compras": usuario['compras']}})
-
-                print("Compra concluída com sucesso!")
-                return carrinho
+                break
             else:
                 print("Número de endereço inválido.")
         except ValueError:
-            print("Entrada inválida. Digite um número válido.")
+            print("Entrada inválida. Digite um número válido ou 'N' para cadastrar um novo endereço.")
+
+   
+    print("\nConfirmação da Compra:")
+    for produto in carrinho:
+        print(f"Produto: {produto['nome']} - Valor: R${produto['valor']}")
+    print(f"Valor total do carrinho: R${total:.2f}")
+    print("Endereço de entrega selecionado:")
+    print(f"{endereco_entrega['rua']}, {endereco_entrega['num']}, {endereco_entrega['bairro']}, {endereco_entrega['cidade']}, {endereco_entrega['estado']}, CEP: {endereco_entrega['cep']}")
+    
+    confirmar_compra = input("\nConfirmar compra? (S/N): ").upper()
+    if confirmar_compra != "S":
+        print("Compra cancelada.")
+        return
+
+    compra = {
+        "cpf_usuario": cpf_usuario,
+        "produtos": carrinho,
+        "endereco_entrega": endereco_entrega,
+        "valor_total": total
+    }
+    db.compra.insert_one(compra)
+    
+    if 'compras' not in usuario:
+        usuario['compras'] = [compra]
+    else:
+        usuario['compras'].append(compra)
+    db.usuario.update_one({"cpf": cpf_usuario}, {"$set": {"compras": usuario['compras']}})
+
+    print("Compra concluída com sucesso!")
+    return carrinho
 
 def ver_compras_realizadas(cpf_usuario):
     global db
