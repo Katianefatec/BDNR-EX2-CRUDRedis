@@ -45,10 +45,12 @@ def realizar_compra(cpf_usuario):
         print("Usuário não encontrado. Deseja realizar o cadastro? (S/N)")
         resposta = input().upper()
         if resposta == 'S':
-            cpf_usuario = create_usuario()  
-            usuario = {"cpf": cpf_usuario}          
-            print("Usuário cadastrado com sucesso.")          
-            
+            cpf_usuario = create_usuario()              
+            usuario = db.usuario.find_one({"cpf": cpf_usuario})            
+            if not usuario:
+                print("Erro: Usuário não encontrado após o cadastro.")
+                return
+            print("Usuário cadastrado com sucesso.")
         else:
             print("Não é possível continuar com a compra sem um usuário cadastrado.")
             return

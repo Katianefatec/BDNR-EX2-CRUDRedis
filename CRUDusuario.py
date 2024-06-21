@@ -72,6 +72,7 @@ def create_usuario():
     mydoc = {"nome": nome, "sobrenome": sobrenome, "cpf": cpf, "end": end}
     x = db.usuario.insert_one(mydoc)
     print("Usuário inserido com ID ", x.inserted_id)
+    return mydoc["cpf"] 
 
 def read_usuario(nome):
     
@@ -81,7 +82,7 @@ def read_usuario(nome):
     if not len(nome):
         mydoc = mycol.find().sort("nome")
         for x in mydoc:
-            print(x["nome"],x["cpf"])
+            print (x["nome"],x["cpf"])
     else:
         myquery = {"nome": nome}
         mydoc = mycol.find(myquery)
