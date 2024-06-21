@@ -54,9 +54,8 @@ while (key != 'S'):
             nome = input("Listar vendedores, deseja algum nome especifico? ")
             CRUDvendedor.read_vendedor(nome)
         
-        elif (sub == '3'):
-            nome = input("Digite o nome a ser atualizado: ")
-            CRUDvendedor.update_vendedor(nome)
+        elif (sub == '3'):            
+            CRUDvendedor.update_vendedor()
 
         elif (sub == '4'):
             print("Excluir vendedor")

@@ -10,11 +10,14 @@ db = client.mercadolivre
 mycol = db.vendedor
 
 def delete_vendedor(nome):
-    
     global db   
     myquery = {"nome": nome}
-    mydoc = mycol.delete_one(myquery)
-    print("Deletado o vendedor",mydoc)
+    result = mycol.delete_one(myquery)
+    if result.deleted_count > 0:
+        print(f"Vendedor '{nome}' deletado com sucesso.")
+    else:
+        print(f"Nenhum vendedor encontrado com o nome '{nome}' para deletar.")
+
 
 def input_with_cancel(prompt, cancel_keyword="CANCELAR"):
     resposta = input(f"{prompt} (digite {cancel_keyword} para abortar): ")
@@ -95,36 +98,47 @@ def read_vendedor(nome):
             produtos = x.get("produtos", "Nenhum produto cadastrado")
             print(x["nome"], x.get("cnpj", "CNPJ não cadastrado"), produtos)
 
-def update_vendedor(nome):
+def update_vendedor():
     global db
     mycol = db.vendedor
-    myquery = {"nome": nome}
-    mydoc = mycol.find_one(myquery)
-    if not mydoc:
-        print("Vendedor não encontrado.")
+    
+    print("\nLista de vendedores:")
+    vendedores = list(mycol.find().sort("nome"))
+    for index, vendedor in enumerate(vendedores):
+        print(f"{index + 1}. {vendedor['nome']} - {vendedor.get('cnpj', 'CNPJ não cadastrado')}")
+
+    escolha = input("Escolha o número do vendedor que deseja atualizar: ")
+    try:
+        escolha = int(escolha) - 1
+        if escolha < 0 or escolha >= len(vendedores):
+            raise ValueError
+    except ValueError:
+        print("Escolha inválida.")
         return
-    print("Dados do usuário: ", mydoc)
+
+    vendedor_escolhido = vendedores[escolha]
+    print("Dados do vendedor escolhido: ", vendedor_escolhido)
 
     novo_nome = input("Mudar Nome (deixe em branco para manter): ")
     if novo_nome:
-        mydoc["nome"] = novo_nome
+        vendedor_escolhido["nome"] = novo_nome
 
     novo_sobrenome = input("Mudar Sobrenome (deixe em branco para manter): ")
     if novo_sobrenome:
-        mydoc["sobrenome"] = novo_sobrenome
+        vendedor_escolhido["sobrenome"] = novo_sobrenome
 
     novo_cnpj = input("Mudar CNPJ (deixe em branco para manter): ")
     if novo_cnpj:
-        mydoc["cnpj"] = novo_cnpj
+        vendedor_escolhido["cnpj"] = novo_cnpj
 
     novo_cpf = input("Mudar CPF (deixe em branco para manter): ")
-    if novo_cpf:        
-        if mycol.find_one({"cpf": novo_cpf, "_id": {"$ne": mydoc["_id"]}}):
+    if novo_cpf:
+        if mycol.find_one({"cpf": novo_cpf, "_id": {"$ne": vendedor_escolhido["_id"]}}):
             print("Já existe um vendedor cadastrado com este CPF.")
             return
         else:
-            mydoc["cpf"] = novo_cpf
+            vendedor_escolhido["cpf"] = novo_cpf
 
-    newvalues = {"$set": mydoc}
-    mycol.update_one(myquery, newvalues)
+    newvalues = {"$set": vendedor_escolhido}
+    mycol.update_one({"_id": vendedor_escolhido["_id"]}, newvalues)
     print("Vendedor atualizado com sucesso.")
