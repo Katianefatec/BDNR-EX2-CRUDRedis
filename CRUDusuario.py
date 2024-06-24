@@ -1,5 +1,7 @@
+import json
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
+from CRUDredis import set_data, get_data, delete_data, conR, converter_objectid_para_string
 
 uri = "mongodb+srv://admin:admin@fatec.izfgkb8.mongodb.net/?retryWrites=true&w=majority&appName=Fatec"
 
@@ -15,6 +17,10 @@ def delete_usuario(nome, sobrenome):
     myquery = {"nome": nome, "sobrenome":sobrenome}
     mydoc = mycol.delete_one(myquery)
     print("Deletado o usuário ",mydoc)
+    usuario = db.usuario.find_one({"nome": nome, "sobrenome": sobrenome})
+    if usuario:
+        delete_data(usuario["cpf"])
+        print("Dados do usuário deletados no Redis com sucesso!")
 
 def input_with_cancel(prompt, cancel_keyword="CANCELAR", cancel_on_n_for_specific_prompt=False):
     resposta = input(f"{prompt} (digite {cancel_keyword} para abortar): ")
@@ -72,41 +78,124 @@ def create_usuario():
     mydoc = {"nome": nome, "sobrenome": sobrenome, "cpf": cpf, "end": end}
     x = db.usuario.insert_one(mydoc)
     print("Usuário inserido com ID ", x.inserted_id)
-    return mydoc["cpf"] 
+    usuario = db.usuario.find_one({"_id": x.inserted_id})
 
-def read_usuario(nome):
+    # Converter _id para string antes de armazenar no Redis
+    usuario_convertido = converter_objectid_para_string(usuario)
+    set_data(usuario_convertido['cpf'], json.dumps(usuario_convertido))
+
+    return mydoc["cpf"]
     
+
+def read_usuario(cpf=None):  
     global db
-    mycol = db.usuario
-    print("Usuários existentes: ")
-    if not len(nome):
-        mydoc = mycol.find().sort("nome")
-        for x in mydoc:
-            print (x["nome"],x["cpf"])
+    
+    if cpf:  
+        usuario_redis = get_data(cpf)
+        if usuario_redis:
+            print(usuario_redis)
     else:
-        myquery = {"nome": nome}
-        mydoc = mycol.find(myquery)
-        for x in mydoc:
-            print(x)
+        # Usuários do Redis
+        print("\nUsuários no Redis:")
+        for chave in conR.scan_iter():  # Iterar pelas chaves do Redis
+            valor_redis = conR.get(chave)
+            try:
+                usuario_redis = json.loads(valor_redis.decode('utf-8'))
+                print(f"- {usuario_redis.get('nome', 'N/A')} {usuario_redis.get('sobrenome', 'N/A')} (CPF: {chave.decode('utf-8')})")
+            except (json.JSONDecodeError, AttributeError):
+                print(f"- Erro ao carregar dados do usuário com CPF {chave.decode('utf-8')}: Valor inválido no Redis")
 
-def update_usuario(nome):
-   
+
+        
+        usuarios_mongo = list(db.usuario.find())
+        total_usuarios = len(usuarios_mongo)
+        if total_usuarios > 0:
+            print("\nUsuários no MongoDB:")
+            for index, usuario in enumerate(usuarios_mongo):
+                print(f"{index + 1} - {usuario['nome']} {usuario['sobrenome']} (CPF: {usuario['cpf']})")
+        else:
+            print("\nNenhum usuário encontrado no MongoDB.")
+
+        if total_usuarios > 0:
+            print("\nUsuários cadastrados:")
+            for index, usuario in enumerate(usuarios_mongo):
+                print(f"{index + 1} - {usuario['nome']} {usuario['sobrenome']}")
+
+            while True:
+                try:
+                    escolha = int(input("\nDigite o número do usuário para ver detalhes (ou 0 para cancelar): "))
+                    if escolha == 0:
+                        break
+
+                    if 1 <= escolha <= total_usuarios:
+                        usuario_escolhido = usuarios_mongo[escolha - 1]  
+                        print("\nDetalhes do usuário:")
+                        print(usuario_escolhido)
+                        break
+                    else:
+                        print("Escolha inválida. Tente novamente.")
+                except ValueError:
+                    print("Digite um número válido.")
+        else:
+            print("Nenhum usuário encontrado.")
+
+def update_usuario():
     global db
-    mycol = db.usuario
-    myquery = {"nome": nome}
-    mydoc = mycol.find_one(myquery)
-    print("Dados do usuário: ",mydoc)
-    nome = input("Mudar Nome:")
-    if len(nome):
-        mydoc["nome"] = nome
+    usuarios_mongo = list(db.usuario.find())  # Converter cursor para lista
+    total_usuarios = len(usuarios_mongo)
 
-    sobrenome = input("Mudar Sobrenome:")
-    if len(sobrenome):
-        mydoc["sobrenome"] = sobrenome
+    if total_usuarios > 0:
+        print("\nUsuários cadastrados:")
+        for index, usuario in enumerate(usuarios_mongo):
+            print(f"{index + 1} - {usuario['nome']} {usuario['sobrenome']}")
 
-    cpf = input("Mudar CPF:")
-    if len(cpf):
-        mydoc["cpf"] = cpf
+        while True:
+            try:
+                escolha = int(input("\nDigite o número do usuário para atualizar (ou 0 para cancelar): "))
+                if escolha == 0:
+                    break
 
-    newvalues = { "$set": mydoc }
-    mycol.update_one(myquery, newvalues)
+                if 1 <= escolha <= total_usuarios:
+                    usuario_escolhido = usuarios_mongo[escolha - 1]
+                    print("\nDados do usuário:", usuario_escolhido)
+
+                    nome = input("Mudar Nome (deixe em branco para manter): ")
+                    if nome:
+                        usuario_escolhido["nome"] = nome
+
+                    sobrenome = input("Mudar Sobrenome (deixe em branco para manter): ")
+                    if sobrenome:
+                        usuario_escolhido["sobrenome"] = sobrenome
+
+                    cpf = input("Mudar CPF (deixe em branco para manter): ")
+                    if cpf:
+                        if db.usuario.find_one({"cpf": cpf}): 
+                            print("CPF já cadastrado. Tente novamente.")
+                            continue
+                        usuario_escolhido["cpf"] = cpf
+
+                    # Obter o CPF antigo antes de atualizar
+                    cpf_antigo = usuario_escolhido["cpf"]
+
+                    # Atualiza o usuário no MongoDB
+                    db.usuario.update_one({"_id": usuario_escolhido["_id"]}, {"$set": usuario_escolhido})
+
+                    # Atualiza o usuário no Redis
+                    usuario_redis = get_data(cpf_antigo)
+                    if usuario_redis:
+                        delete_data(cpf_antigo)  # Remove a chave antiga (com o CPF antigo)
+
+                    # Converter _id para string antes de armazenar no Redis
+                    usuario_convertido = converter_objectid_para_string(usuario_escolhido)
+                    set_data(usuario_convertido['cpf'], json.dumps(usuario_convertido))  # Adiciona/atualiza a chave no Redis com o CPF
+
+                    print("Usuário atualizado com sucesso!")
+                    break
+                else:
+                    print("Escolha inválida. Tente novamente.")
+            except ValueError:
+                print("Digite um número válido.")
+    else:
+        print("Nenhum usuário encontrado.")
+
+    

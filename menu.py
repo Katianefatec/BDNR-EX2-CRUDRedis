@@ -26,12 +26,11 @@ while (key != 'S'):
             CRUDusuario.create_usuario()
             
         elif (sub == '2'):
-            nome = input("Listar usuários, deseja algum nome especifico? ")
+            nome = input("Digite o cpf ou tecle enter para listar todos")
             CRUDusuario.read_usuario(nome)
         
-        elif (sub == '3'):
-            nome = input("Digite o usuário a ser atualizado: ")
-            CRUDusuario.update_usuario(nome)
+        elif (sub == '3'):           
+            CRUDusuario.update_usuario()
 
         elif (sub == '4'):
             print("delete usuario")
