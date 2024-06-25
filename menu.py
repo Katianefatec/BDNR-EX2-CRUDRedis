@@ -73,8 +73,7 @@ while (key != 'S'):
             CRUDproduto.create_produto()
             
         elif (sub == '2'):
-            nome = input("Listar produto, deseja algum produto especifico? ")
-            CRUDproduto.read_produto(nome)
+            CRUDproduto.read_produto()
         
         elif (sub == '3'):            
             CRUDproduto.update_produto()

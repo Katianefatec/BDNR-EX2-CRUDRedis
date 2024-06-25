@@ -88,49 +88,92 @@ def create_usuario():
     return mydoc["cpf"]
     
 
-def read_usuario(cpf=None):  
+def read_usuario(cpf=None):
     global db
-    
-    if cpf:  
+    total_usuarios_mongo = 0
+    usuarios_cadastrados = []
+    contador = 0
+
+    if cpf:
+        # Lógica para buscar por CPF específico (sem alterações)
         usuario_redis = get_data(cpf)
         if usuario_redis:
             print(usuario_redis)
+        else:
+            usuario_mongo = db.usuario.find_one({"cpf": cpf})
+            if usuario_mongo:
+                print(usuario_mongo)
+                set_data(cpf, usuario_mongo)  # Armazenar no Redis após buscar do MongoDB
+            else:
+                print("Usuário não encontrado.")
+
     else:
         # Usuários do Redis
         print("\nUsuários no Redis:")
-        for chave in conR.scan_iter():  # Iterar pelas chaves do Redis
+        usuarios_redis = []
+        for chave in conR.scan_iter():
             valor_redis = conR.get(chave)
             try:
                 usuario_redis = json.loads(valor_redis.decode('utf-8'))
-                print(f"- {usuario_redis.get('nome', 'N/A')} {usuario_redis.get('sobrenome', 'N/A')} (CPF: {chave.decode('utf-8')})")
+                if 'cpf' in usuario_redis:
+                    usuarios_redis.append(usuario_redis)
+                    print(f"- {usuario_redis['nome']} {usuario_redis['sobrenome']} (CPF: {usuario_redis['cpf']})")
+                    contador += 1  # Incrementa o contador aqui
             except (json.JSONDecodeError, AttributeError):
-                print(f"- Erro ao carregar dados do usuário com CPF {chave.decode('utf-8')}: Valor inválido no Redis")
+                print(f"- Erro ao carregar dados com a chave {chave.decode('utf-8')}: Valor inválido no Redis")
 
-
-        
+        # Usuários do MongoDB
+        print("\nUsuários no MongoDB:")
         usuarios_mongo = list(db.usuario.find())
-        total_usuarios = len(usuarios_mongo)
-        if total_usuarios > 0:
-            print("\nUsuários no MongoDB:")
-            for index, usuario in enumerate(usuarios_mongo):
-                print(f"{index + 1} - {usuario['nome']} {usuario['sobrenome']} (CPF: {usuario['cpf']})")
-        else:
-            print("\nNenhum usuário encontrado no MongoDB.")
-            print("Usuários encontrados no Redis: ", len(conR.scan_iter()))
+        total_usuarios_mongo = len(usuarios_mongo)
+        for usuario in usuarios_mongo:
+            print(f"- {usuario['nome']} {usuario['sobrenome']} (CPF: {usuario['cpf']})")
+            usuarios_cadastrados.append(usuario)
+            contador += 1  # Incrementa o contador aqui
 
-        if total_usuarios > 0:
-            print("\nUsuários cadastrados:")
-            for index, usuario in enumerate(usuarios_mongo):
-                print(f"{index + 1} - {usuario['nome']} {usuario['sobrenome']}")
+        # Usuários apenas no Redis (correção da lógica)
+        usuarios_apenas_redis = [u for u in usuarios_redis if not any(u['cpf'] == m['cpf'] for m in usuarios_mongo)]
+        for usuario in usuarios_apenas_redis:  # Incrementa o contador para usuários apenas no Redis
+            contador += 1
 
+        # Combinar e exibir usuários cadastrados
+        print("\nUsuários cadastrados:")
+        for i, usuario in enumerate(usuarios_cadastrados, start=1):
+            print(f"{i} - {usuario['nome']} {usuario['sobrenome']} (CPF: {usuario['cpf']})")
+
+        # Perguntar sobre usuários que estão apenas no Redis
+        for usuario in usuarios_apenas_redis:
+            while True:
+                acao = input(f"\nO usuário {usuario['nome']} {usuario['sobrenome']} (CPF: {usuario['cpf']}) está apenas no Redis. Deseja adicionar ao MongoDB (A) ou excluir do Redis (E)? ").strip().upper()
+                if acao == 'A':
+                    if not db.usuario.find_one({"_id": usuario['_id']}):
+                        usuario['_id'] = ObjectId(usuario['_id'])
+                        db.usuario.insert_one(usuario)
+                        print("Usuário adicionado ao MongoDB com sucesso!")
+                    else:
+                        print("Usuário já existe no MongoDB.")
+                    break
+                elif acao == 'E':
+                    delete_data(usuario['cpf'])
+                    print("Usuário excluído do Redis com sucesso!")
+                    break
+                else:
+                    print("Opção inválida. Digite A ou E.")
+
+        # Escolher usuário para ver detalhes (somente se houver usuários no Redis ou no MongoDB)
+        if usuarios_redis or usuarios_mongo:
             while True:
                 try:
                     escolha = int(input("\nDigite o número do usuário para ver detalhes (ou 0 para cancelar): "))
                     if escolha == 0:
                         break
 
-                    if 1 <= escolha <= total_usuarios:
-                        usuario_escolhido = usuarios_mongo[escolha - 1]  
+                    # Correção na verificação da escolha
+                    if 1 <= escolha <= contador:  # Compara com o contador total
+                        if escolha <= total_usuarios_mongo:
+                            usuario_escolhido = usuarios_mongo[escolha - 1]
+                        else:
+                            usuario_escolhido = usuarios_redis[escolha - total_usuarios_mongo - 1]
                         print("\nDetalhes do usuário:")
                         print(usuario_escolhido)
                         break
@@ -140,46 +183,54 @@ def read_usuario(cpf=None):
                     print("Digite um número válido.")
         else:
             print("Nenhum usuário encontrado.")
-
 def update_usuario():
     global db
     usuarios_mongo = list(db.usuario.find())
     total_usuarios_mongo = len(usuarios_mongo)
 
     if total_usuarios_mongo > 0:
-        print("\nUsuários cadastrados no MongoDB:")
-        for index, usuario in enumerate(usuarios_mongo):
-            print(f"{index + 1} - {usuario['nome']} {usuario['sobrenome']}")
+        print("\nUsuários no MongoDB:")
+        for usuario in usuarios_mongo:
+            print(f"- {usuario['nome']} {usuario['sobrenome']} (CPF: {usuario['cpf']})")
     else:
         print("\nNenhum usuário encontrado no MongoDB.")
 
-    # Listar usuários do Redis se não houver no MongoDB ou se o usuário não for encontrado
-    print("\nUsuários cadastrados no Redis:")
+    print("\nUsuários no Redis:")
     usuarios_redis = []
-    for index, chave in enumerate(conR.scan_iter()):  # Adicionamos enumerate aqui
+    for chave in conR.scan_iter():
         valor_redis = conR.get(chave)
         try:
             usuario_redis = json.loads(valor_redis.decode('utf-8'))
-            usuarios_redis.append(usuario_redis)
-            print(f"{index + 1} - {usuario_redis.get('nome', 'N/A')} {usuario_redis.get('sobrenome', 'N/A')} (CPF: {chave.decode('utf-8')})")
+            if 'cpf' in usuario_redis:
+                usuarios_redis.append(usuario_redis)
+                print(f"- {usuario_redis['nome']} {usuario_redis['sobrenome']} (CPF: {usuario_redis['cpf']})")
         except (json.JSONDecodeError, AttributeError):
-            print(f"- Erro ao carregar dados do usuário com CPF {chave.decode('utf-8')}: Valor inválido no Redis")
+            pass
 
-    total_usuarios_redis = len(usuarios_redis)
-    if total_usuarios_redis == 0 and total_usuarios_mongo == 0:
+    if not usuarios_redis and not usuarios_mongo:
         print("Nenhum usuário encontrado no Redis.")
         return
 
-    # Escolher usuário para atualizar/excluir (MongoDB ou Redis)
+    # Lista unificada e numerada para escolha do usuário (sem duplicatas)
+    print("\nUsuários para atualizar/excluir:")
+    todos_usuarios = []
+    cpfs_adicionados = set()  # Conjunto para armazenar CPFs já adicionados
+    for usuario in usuarios_mongo + usuarios_redis:
+        if usuario['cpf'] not in cpfs_adicionados:
+            todos_usuarios.append(usuario)
+            cpfs_adicionados.add(usuario['cpf'])
+            print(f"{len(todos_usuarios)} - {usuario['nome']} {usuario['sobrenome']} (CPF: {usuario['cpf']})")
+
+    # Escolher usuário para atualizar/excluir
     while True:
         try:
             escolha = int(input("\nDigite o número do usuário para atualizar/excluir (ou 0 para cancelar): "))
             if escolha == 0:
                 return
 
-            if 1 <= escolha <= total_usuarios_mongo:
-                usuario_escolhido = usuarios_mongo[escolha - 1]
-                usuario_no_mongo = True  # Flag para indicar que o usuário está no MongoDB
+            if 1 <= escolha <= len(todos_usuarios):
+                usuario_escolhido = todos_usuarios[escolha - 1]
+                usuario_no_mongo = usuario_escolhido in usuarios_mongo
             elif 1 <= escolha <= total_usuarios_mongo + total_usuarios_redis:
                 usuario_escolhido = usuarios_redis[escolha - total_usuarios_mongo - 1]
                 usuario_no_mongo = False  # Flag para indicar que o usuário está no Redis

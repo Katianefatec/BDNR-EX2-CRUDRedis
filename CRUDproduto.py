@@ -1,6 +1,8 @@
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
-from bson.objectid import ObjectId
+from CRUDredis import set_data, get_data, delete_data, conR, converter_objectid_para_string
+from bson import ObjectId
+import json
 
 uri = "mongodb+srv://admin:admin@fatec.izfgkb8.mongodb.net/?retryWrites=true&w=majority&appName=Fatec"
 
@@ -149,25 +151,100 @@ def update_produto():
     else:
         print("Nenhuma atualização realizada.")
 
-def read_produto(nome):
+def read_produto(nome=""):
     global db
     mycol = db.produto
-    mycol_vendedor = db.vendedor  
-
-    print("Produtos existentes: ")
-    if not len(nome):
-        mydoc = mycol.find().sort("nome")
-    else:
-        myquery = {"nome": nome}
-        mydoc = mycol.find(myquery)
-
-    for produto in mydoc:
-        
+    mycol_vendedor = db.vendedor
+    
+    print("Produtos no MongoDB:")
+    produtos_mongo = list(mycol.find({"nome": nome if nome else {"$regex": ""}}).sort("nome"))
+    for produto in produtos_mongo:
         vendedor_id = produto.get("vendedor_id")
+        if isinstance(vendedor_id, str):  # Verifica se vendedor_id é string (do Redis)
+            vendedor_id = ObjectId(vendedor_id)  # Converte para ObjectId
         vendedor = mycol_vendedor.find_one({"_id": vendedor_id})
         nome_vendedor = vendedor["nome"] if vendedor else "Vendedor não encontrado"
-        
-        
-        print(f"Nome: {produto['nome']}, Valor: {produto['valor']}, Vendedor: {nome_vendedor}")
+        print(f"- {produto['nome']} (Valor: {produto['valor']}, Vendedor: {nome_vendedor})")
+
+        # Adiciona o produto ao Redis se ele não estiver lá
+        produto_redis = get_data(str(produto["_id"]))
+        if not produto_redis:
+            produto['_id'] = str(produto['_id'])  # Converte o ObjectId para string
+            produto["vendedor_id"] = str(vendedor_id)  # Converte o vendedor_id para string
+            set_data(str(produto["_id"]), produto)
+
+    print("\nProdutos no Redis:")
+    produtos_redis = []
+    for chave in conR.scan_iter():
+        valor_redis = conR.get(chave)
+        try:
+            produto_redis = json.loads(valor_redis.decode('utf-8'))
+            if '_id' in produto_redis and 'valor' in produto_redis:
+                produtos_redis.append(produto_redis)
+                # Buscar vendedor no MongoDB (convertendo vendedor_id para ObjectId)
+                vendedor_id = ObjectId(produto_redis.get("vendedor_id"))
+                vendedor = mycol_vendedor.find_one({"_id": vendedor_id}) if vendedor_id else None
+                nome_vendedor = vendedor["nome"] if vendedor else "Vendedor não encontrado"
+                print(f"- {produto_redis['nome']} (Valor: {produto_redis['valor']}, Vendedor: {nome_vendedor})")
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+    # Produtos apenas no Redis
+    produtos_apenas_redis = [p for p in produtos_redis if not any(p['_id'] == str(m['_id']) for m in produtos_mongo)]
+
+    # Lista unificada e numerada para escolha do produto (sem duplicatas)
+    print("\nTodos os produtos:")
+    todos_produtos = {}   # Movido para fora do bloco condicional
+    ids_adicionados = set() # Movido para fora do bloco condicional
+    for produto in produtos_mongo + produtos_redis:  # Combina as listas atualizadas
+        if produto['_id'] not in ids_adicionados:
+            todos_produtos[produto['_id']] = produto
+            ids_adicionados.add(produto['_id'])
+            vendedor_id = produto.get("vendedor_id")
+            if isinstance(vendedor_id, str):
+                vendedor_id = ObjectId(vendedor_id)
+            vendedor = mycol_vendedor.find_one({"_id": vendedor_id}) if vendedor_id else None
+            nome_vendedor = vendedor["nome"] if vendedor else "Vendedor não encontrado"
+            print(f"{len(todos_produtos)} - {produto['nome']} (Valor: {produto['valor']}, Vendedor: {nome_vendedor})")
+
+    if produtos_apenas_redis:
+        print("\nProdutos apenas no Redis:")
+        for produto in produtos_apenas_redis:
+            vendedor_id = produto.get("vendedor_id")
+            vendedor = mycol_vendedor.find_one({"_id": ObjectId(vendedor_id)}) if vendedor_id else None
+            nome_vendedor = vendedor["nome"] if vendedor else "Vendedor não encontrado"
+            print(f"- {produto['nome']} (Valor: {produto['valor']}, Vendedor: {nome_vendedor})")
+
+            # Opções para o usuário
+            while True:
+                acao = input(f"\nO produto {produto['nome']} (ID: {produto['_id']}) está apenas no Redis. Deseja adicionar ao MongoDB (A) ou excluir do Redis (E)? ").strip().upper()
+                if acao == 'A':
+                    if not mycol.find_one({"_id": ObjectId(produto['_id'])}):
+                        produto['_id'] = ObjectId(produto['_id'])
+                        mycol.insert_one(produto)
+                        print("Produto adicionado ao MongoDB com sucesso!")
+
+                        # Atualiza a lista todos_produtos e remove do Redis
+                        todos_produtos[produto['_id']] = produto
+                        
+
+                    else:
+                        print("Produto já existe no MongoDB.")
+                    break
+                elif acao == 'E':
+                    delete_data(str(produto['_id']))  # Converte o ObjectId para string aqui
+                    print("Produto excluído do Redis com sucesso!")
+                    break
+                else:
+                    print("Opção inválida. Digite A ou E.")
+
+   
     
+
+
+
+
+
+
+
 

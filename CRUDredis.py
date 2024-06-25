@@ -29,9 +29,9 @@ def get_data(key):
     data = conR.get(key)
     if data:
         try:
-            return json.loads(data.decode('utf-8'))  # Decodificar e carregar o JSON
+            return json.loads(data.decode('utf-8')) 
         except json.JSONDecodeError:
-            return None  # Retornar None se não for um JSON válido
+            return None  
     else:
         return None
 
